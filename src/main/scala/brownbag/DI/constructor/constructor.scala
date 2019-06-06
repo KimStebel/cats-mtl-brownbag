@@ -1,13 +1,20 @@
-package brownbag.DI.CI
+package brownbag.DI.constructor
 
 import cats.effect._
-import cats._
-import cats.data._
-import cats.implicits._
-
+import cats.Id
+import cats.data.ReaderT
 import brownbag.DI._
+import cats.syntax.flatMap._
+
+// checked at compile time
+// familiar to OO developers
+
+// dependencies need to be passed around explicitly
+// all methods in a class get the same dependencies, no easy way to see what "effects" a method might have
+// requires use `class` where you could otherwise use `object`
 
 class VotingService(voteStore: VoteStore, voterCheck: VoterCheck) {
+
   def vote(partyName: String, voter: Voter): IO[Unit] =
     for {
       checkResult <- voterCheck.check(voter)
@@ -43,4 +50,17 @@ object Main {
     // run
     votingService.vote("THE BREXIT PARTY", Voter("Kim Stebel")).unsafeRunSync()
   }
+}
+
+class FakeVoteStore extends VoteStore {
+  override def store(partyName: String): IO[Unit] = ???
+}
+
+class FakeVoterCheck extends VoterCheck {
+  override def check(voter: Voter): IO[Boolean] = ???
+}
+
+object Test {
+  val votingServiceWithTestDeps =
+    new VotingService(new FakeVoteStore, new FakeVoterCheck)
 }

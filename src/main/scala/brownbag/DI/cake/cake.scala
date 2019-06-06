@@ -7,6 +7,14 @@ import cats.implicits._
 
 import brownbag.DI._
 
+// checked at compile time
+// singletons can be modelled as objects
+
+// boilerplate
+// weird startup errors if you aren't very careful
+// can be confusing with implicits
+// uses some lesser known Scala features (self types, sometimes bounds on typedefs), thus harder to understand
+
 trait VotingService {
   self: VoteStoreComponent with VoterCheckComponent =>
 
@@ -28,6 +36,8 @@ trait VoteStoreComponent {
 }
 
 trait RealVoteStoreComponent extends VoteStoreComponent {
+  self: DbComponent =>
+
   override val voteStore: VoteStore = new RealVoteStore(???)
 }
 
@@ -46,20 +56,50 @@ trait RealVoterCheckComponent extends VoterCheckComponent {
 
 }
 
-class RealDb extends DB {
+object RealDb extends DB {
   override def incrementCounter(name: String): IO[Unit] = IO {}
+}
+
+trait DbComponent {
+  def db: DB
+}
+
+trait RealDbComponent extends DbComponent {
+  override val db = RealDb
 }
 
 object Main {
 
   def main(args: Array[String]): Unit = {
+
     // setup
-    val votingService =
-      new VotingService(
-        new RealVoteStore(new RealDb),
-        new RealVoterCheck
-      )
+    object VotingServiceImpl
+        extends VotingService
+        with RealVoterCheckComponent
+        with RealVoteStoreComponent
+        with RealDbComponent
+
     // run
-    votingService.vote("THE BREXIT PARTY", Voter("Kim Stebel")).unsafeRunSync()
+    VotingServiceImpl
+      .vote("THE BREXIT PARTY", Voter("Kim Stebel"))
+      .unsafeRunSync()
   }
+}
+
+trait FakeVoterCheckComponent extends VoterCheckComponent {
+  override def voterCheck: VoterCheck = ???
+}
+
+trait FakeVoteStoreComponent extends VoteStoreComponent {
+  override def voteStore: VoteStore = ???
+}
+
+object Test {
+
+  //setup
+  object VotingServiceWithTestDeps
+      extends VotingService
+      with FakeVoterCheckComponent
+      with FakeVoteStoreComponent
+
 }
